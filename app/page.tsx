@@ -4,6 +4,7 @@ import { ChangeEvent, DragEvent, useRef, useState } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleHelp, ExternalLink, ImagePlus, LoaderCircle, ScanSearch, Search, ShieldCheck, Shirt, Sparkles, UploadCloud, X } from "lucide-react";
 
 type Garment = { id: number; category: string; name: string; color: string; details: string; query: string };
+type ShopLink = { name: string; url: string; description: string };
 type Product = { id: string; title: string; link: string; image: string; price: number; mall: string; brand: string };
 type Stage = "upload" | "analyzing" | "select" | "searching" | "results";
 const demoItems: Garment[] = [
@@ -25,6 +26,7 @@ export default function Home() {
   const [items, setItems] = useState<Garment[]>([]);
   const [active, setActive] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
+  const [searchLinks, setSearchLinks] = useState<ShopLink[]>([]);
   const [error, setError] = useState("");
   const [demo, setDemo] = useState(false);
   const [sort, setSort] = useState("relevance");
@@ -39,7 +41,7 @@ export default function Home() {
       setError("JPG, PNG, WEBP 이미지만 업로드할 수 있으며 크기는 4MB 이하여야 합니다.");
       return;
     }
-    setError(""); setItems([]); setProducts([]); setDemo(false); setStage("upload");
+    setError(""); setItems([]); setProducts([]); setSearchLinks([]); setDemo(false); setStage("upload");
     const reader = new FileReader();
     reader.onload = () => setPreview(String(reader.result || ""));
     reader.readAsDataURL(file);
@@ -57,17 +59,17 @@ export default function Home() {
       setItems(data.items); setActive(0); setStage("select");
     } catch (e) { setError(e instanceof Error ? e.message : "분석에 실패했습니다."); setStage("upload"); }
   }
-  function tryDemo() { setDemo(true); setError(""); setItems(demoItems); setActive(0); setProducts([]); setStage("select"); }
+  function tryDemo() { setDemo(true); setError(""); setItems(demoItems); setActive(0); setProducts([]); setSearchLinks([]); setStage("select"); }
   async function search(index = active) {
-    setActive(index); setProducts([]); setError(""); setSort("relevance"); setMaxPrice(""); setStage("searching");
+    setActive(index); setProducts([]); setSearchLinks([]); setError(""); setSort("relevance"); setMaxPrice(""); setStage("searching");
     try {
       const r = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: items[index].query }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "상품 검색에 실패했습니다.");
-      setProducts(data.items || []); setStage("results");
+      setProducts(data.items || []); setSearchLinks(data.links || []); setStage("results");
     } catch (e) { setError(e instanceof Error ? e.message : "상품 검색에 실패했습니다."); setStage("select"); }
   }
-  function reset() { setPreview(""); setStage("upload"); setItems([]); setProducts([]); setError(""); setDemo(false); }
+  function reset() { setPreview(""); setStage("upload"); setItems([]); setProducts([]); setSearchLinks([]); setError(""); setDemo(false); }
   return <div className="site">
     <header className="header"><a href="/" className="brand"><span className="brand-mark">f<span>.</span></span><span>findclothes<span className="brand-period">.</span></span></a><nav><a href="#how">HOW IT WORKS</a><a href="#inspiration">INSPIRATION</a></nav><button className="header-cta" onClick={() => { reset(); input.current?.click(); }}>FIND YOUR LOOK <ArrowUpRight size={15}/></button></header>
     <main>
@@ -90,7 +92,7 @@ export default function Home() {
         </section>
       </> : <>
         <section className="workspace"><button className="back-btn" onClick={() => stage === "results" ? setStage("select") : reset()}><ArrowLeft size={18}/> {stage === "results" ? "의상 선택으로 돌아가기" : "다른 사진 업로드"}</button>
-          <div className="workspace-heading"><span className="section-number">YOUR STYLE SEARCH / {stage === "results" ? "02 RESULTS" : "01 ANALYSIS"}</span><h1>{stage === "analyzing" ? "Decoding your look" : stage === "searching" ? "Finding your pieces" : stage === "results" ? "The pieces, found." : "Pick your piece."}<span className="lime-dot">.</span></h1><p>{stage === "select" ? "찾고 싶은 의상을 골라 상품을 검색해보세요." : stage === "results" ? "검색어와 관련된 실제 쇼핑 상품입니다. 동일 제품 여부는 별도로 확인해 주세요." : "잠시만요. 스타일을 살펴보고 있어요."}</p></div>
+          <div className="workspace-heading"><span className="section-number">YOUR STYLE SEARCH / {stage === "results" ? "02 RESULTS" : "01 ANALYSIS"}</span><h1>{stage === "analyzing" ? "Decoding your look" : stage === "searching" ? "Finding your pieces" : stage === "results" ? "The pieces, found." : "Pick your piece."}<span className="lime-dot">.</span></h1><p>{stage === "select" ? "찾고 싶은 의상을 골라 상품을 검색해보세요." : stage === "results" ? "AI가 추출한 검색어로 쇼핑몰 검색 결과를 확인해 보세요." : "잠시만요. 스타일을 살펴보고 있어요."}</p></div>
           {demo && <div className="demo-notice">DEMO MODE — 아래 아이템은 업로드된 사진의 AI 분석 결과가 아닌 예시 데이터입니다.</div>}
           <div className="workspace-grid"><div className="selected-photo">{preview ? <img src={preview} alt="분석 중인 스타일 사진"/> : <div className="demo-photo"><Shirt size={75}/><span>DEMO EXPERIENCE</span></div>}<span className="photo-index">YOUR REFERENCE / 001</span></div>
             <div className="analysis-panel">
@@ -98,11 +100,15 @@ export default function Home() {
               <><div className="panel-top"><span>{stage === "results" ? "SEARCHED ITEM" : "DETECTED PIECES"}</span><span>{String(items.length).padStart(2,"0")} ITEMS</span></div>
                 <div className="garment-list">{items.map((item, index) => <button key={item.id} className={"garment "+(active===index?"active":"")} onClick={()=>{setActive(index);if(stage==="results"){setStage("select");setProducts([]);}}}><span className="garment-num">{String(index+1).padStart(2,"0")}</span><span className="garment-name"><b>{item.name}</b><small>{item.category} · {item.details}</small></span>{active===index?<span className="selected-icon"><Check size={16}/></span>:<ArrowUpRight size={19}/>}</button>)}</div>
                 {stage === "select" && <><div className="selected-detail"><span>SELECTED PIECE</span><strong>{garment?.name}</strong><p>{garment?.color} / {garment?.details}</p><small>추천 검색어: {garment?.query}</small></div><button className="primary-btn wide" onClick={()=>search()}>비슷한 상품 찾아보기 <Search size={19}/></button></>}
-                {stage === "results" && <div className="selected-detail"><span>SEARCH QUERY</span><strong>{garment?.query}</strong><p>{products.length}개 상품 검색됨</p></div>}
+                {stage === "results" && <div className="selected-detail"><span>SEARCH QUERY</span><strong>{garment?.query}</strong><p>쇼핑몰 {searchLinks.length}곳 바로 검색</p></div>}
               </>}
             </div></div>
-          {stage === "results" && <section className="result-section"><div className="result-title"><div><span className="section-number">02 — SHOP THE LOOK</span><h2>Get the <em>look.</em></h2></div><span className="result-count">{filtered.length} RESULTS</span></div><div className="disclaimer"><CircleHelp size={17}/><span>네이버 쇼핑의 검색어 관련도순 결과입니다. 사진과의 시각적 유사도나 동일 브랜드·제품은 검증되지 않았으며 가격은 변동될 수 있습니다.</span></div><div className="filters"><label>정렬 <span className="select-wrap"><select value={sort} onChange={e=>setSort(e.target.value)}><option value="relevance">검색 관련도순</option><option value="low">낮은 가격순</option><option value="high">높은 가격순</option></select><ChevronDown size={16}/></span></label><label>가격 <span className="select-wrap"><select value={maxPrice} onChange={e=>setMaxPrice(e.target.value)}><option value="">전체 가격</option><option value="50000">5만원 이하</option><option value="100000">10만원 이하</option><option value="200000">20만원 이하</option><option value="500000">50만원 이하</option></select><ChevronDown size={16}/></span></label></div>
-              {filtered.length ? <div className="product-grid">{filtered.map((p,i)=><a className="product" href={p.link} target="_blank" rel="noopener noreferrer" key={p.id+"-"+i}><div className="product-image"><img src={p.image} alt={p.title} loading="lazy" referrerPolicy="no-referrer" /><span className="product-link"><ArrowUpRight size={20}/></span></div><div className="product-meta"><span>{p.brand || p.mall}</span><span>{String(i+1).padStart(2,"0")}</span></div><h3>{p.title}</h3><div className="product-bottom"><strong>{p.price.toLocaleString("ko-KR")}원</strong><span>{p.mall} <ExternalLink size={12}/></span></div></a>)}</div>:<div className="empty-results">조건에 맞는 상품이 없습니다. 가격 필터를 변경하거나 다른 의상을 선택해 주세요.</div>}</section>}
+          {stage === "results" && <section className="result-section">
+            <div className="result-title"><div><span className="section-number">02 — SHOP THE LOOK</span><h2>Get the <em>look.</em></h2></div><span className="result-count">SHOP SEARCH</span></div>
+            <div className="disclaimer"><CircleHelp size={17}/><span>네이버의 기존 쇼핑 검색 API가 종료되어 상품 이미지와 가격을 앱 안에 직접 표시할 수 없습니다. AI가 만든 검색어로 각 쇼핑몰의 검색 결과 페이지를 새 탭에서 엽니다. 동일 제품 여부는 쇼핑몰에서 직접 확인해 주세요.</span></div>
+            <div className="shopping-links">{searchLinks.map(link => <a key={link.name} href={link.url} target="_blank" rel="noopener noreferrer" className="shopping-link"><div><span>SEARCH AT</span><h3>{link.name}</h3><p>{link.description}</p></div><ArrowUpRight size={25}/></a>)}</div>
+            {!searchLinks.length && <div className="empty-results">쇼핑몰 검색 링크를 생성하지 못했습니다. 다시 시도해 주세요.</div>}
+          </section>}
           {error && <div className="alert" role="alert">{error}</div>}
         </section>
       </>}
