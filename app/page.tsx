@@ -162,7 +162,7 @@ export default function Home() {
   async function search(index = active) {
     setActive(index); setSearchLinks([]); setError(""); setStage("searching");
     try {
-      const r = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: items[index].query }) });
+      const r = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: items[index].query, locale }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || t("searchError"));
       setSearchLinks(data.links || []); setStage("results");
