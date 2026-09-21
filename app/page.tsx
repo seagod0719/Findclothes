@@ -1,11 +1,10 @@
 "use client";
 
 import { ChangeEvent, DragEvent, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, CircleHelp, ExternalLink, ImagePlus, LoaderCircle, ScanSearch, Search, ShieldCheck, Shirt, Sparkles, UploadCloud, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, CircleHelp, ImagePlus, LoaderCircle, ScanSearch, Search, Shirt, Sparkles, UploadCloud, X } from "lucide-react";
 
 type Garment = { id: number; category: string; name: string; color: string; details: string; query: string };
 type ShopLink = { name: string; url: string; description: string };
-type Product = { id: string; title: string; link: string; image: string; price: number; mall: string; brand: string };
 type Stage = "upload" | "analyzing" | "select" | "searching" | "results";
 const demoItems: Garment[] = [
   { id: 1, category: "아우터", name: "빈티지 블랙 레더 재킷", color: "블랙", details: "여유로운 실루엣 · 지퍼 디테일", query: "블랙 오버핏 레더 자켓" },
@@ -25,23 +24,19 @@ export default function Home() {
   const [stage, setStage] = useState<Stage>("upload");
   const [items, setItems] = useState<Garment[]>([]);
   const [active, setActive] = useState(0);
-  const [products, setProducts] = useState<Product[]>([]);
   const [searchLinks, setSearchLinks] = useState<ShopLink[]>([]);
   const [error, setError] = useState("");
   const [demo, setDemo] = useState(false);
-  const [sort, setSort] = useState("relevance");
-  const [maxPrice, setMaxPrice] = useState("");
   const [drag, setDrag] = useState(false);
   const garment = items[active];
-  const filtered = products.filter(p => !maxPrice || p.price <= Number(maxPrice)).sort((a, b) => sort === "low" ? a.price - b.price : sort === "high" ? b.price - a.price : 0);
 
   function load(file?: File) {
     if (!file) return;
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 4 * 1024 * 1024) {
-      setError("JPG, PNG, WEBP 이미지만 업로드할 수 있으며 크기는 4MB 이하여야 합니다.");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) {
+      setError("JPG, PNG, WEBP 이미지만 업로드할 수 있으며 크기는 3MB 이하여야 합니다.");
       return;
     }
-    setError(""); setItems([]); setProducts([]); setSearchLinks([]); setDemo(false); setStage("upload");
+    setError(""); setItems([]); setSearchLinks([]); setDemo(false); setStage("upload");
     const reader = new FileReader();
     reader.onload = () => setPreview(String(reader.result || ""));
     reader.readAsDataURL(file);
@@ -59,17 +54,17 @@ export default function Home() {
       setItems(data.items); setActive(0); setStage("select");
     } catch (e) { setError(e instanceof Error ? e.message : "분석에 실패했습니다."); setStage("upload"); }
   }
-  function tryDemo() { setDemo(true); setError(""); setItems(demoItems); setActive(0); setProducts([]); setSearchLinks([]); setStage("select"); }
+  function tryDemo() { setDemo(true); setError(""); setItems(demoItems); setActive(0); setSearchLinks([]); setStage("select"); }
   async function search(index = active) {
-    setActive(index); setProducts([]); setSearchLinks([]); setError(""); setSort("relevance"); setMaxPrice(""); setStage("searching");
+    setActive(index); setSearchLinks([]); setError(""); setStage("searching");
     try {
       const r = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: items[index].query }) });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "상품 검색에 실패했습니다.");
-      setProducts(data.items || []); setSearchLinks(data.links || []); setStage("results");
+      setSearchLinks(data.links || []); setStage("results");
     } catch (e) { setError(e instanceof Error ? e.message : "상품 검색에 실패했습니다."); setStage("select"); }
   }
-  function reset() { setPreview(""); setStage("upload"); setItems([]); setProducts([]); setSearchLinks([]); setError(""); setDemo(false); }
+  function reset() { setPreview(""); setStage("upload"); setItems([]); setSearchLinks([]); setError(""); setDemo(false); }
   return <div className="site">
     <header className="header"><a href="/" className="brand"><span className="brand-mark">f<span>.</span></span><span>findclothes<span className="brand-period">.</span></span></a><nav><a href="#how">HOW IT WORKS</a><a href="#inspiration">INSPIRATION</a></nav><button className="header-cta" onClick={() => { reset(); input.current?.click(); }}>FIND YOUR LOOK <ArrowUpRight size={15}/></button></header>
     <main>
@@ -87,19 +82,19 @@ export default function Home() {
           <div className="upload-heading"><h2>Upload your <em>inspiration.</em></h2><p>공항 패션부터 인스타 속 코디까지,<br/>찾고 싶은 스타일을 올려주세요.</p></div>
           <div className={"dropzone "+(drag?"drag":"")} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={onDrop}>
             {preview ? <><img className="preview-image" src={preview} alt="업로드한 사진" /><button className="remove-image" onClick={reset} aria-label="이미지 제거"><X size={18}/></button><p className="drop-caption">READY TO FIND YOUR LOOK</p><button className="primary-btn" onClick={analyze}>AI로 의상 분석하기 <Sparkles size={18}/></button></> :
-              <><div className="upload-icon"><ImagePlus size={29} strokeWidth={1.4}/></div><h3>Drop your photo here<span>.</span></h3><p>사진을 드래그하거나 아래 버튼을 눌러주세요</p><button className="secondary-btn" onClick={() => input.current?.click()}><UploadCloud size={18}/> 이미지 선택하기</button><small>JPG, PNG, WEBP · 최대 4MB</small></>}
+              <><div className="upload-icon"><ImagePlus size={29} strokeWidth={1.4}/></div><h3>Drop your photo here<span>.</span></h3><p>사진을 드래그하거나 아래 버튼을 눌러주세요</p><button className="secondary-btn" onClick={() => input.current?.click()}><UploadCloud size={18}/> 이미지 선택하기</button><small>JPG, PNG, WEBP · 최대 3MB</small></>}
           </div>{error && <div className="alert" role="alert">{error}</div>}
         </section>
       </> : <>
         <section className="workspace"><button className="back-btn" onClick={() => stage === "results" ? setStage("select") : reset()}><ArrowLeft size={18}/> {stage === "results" ? "의상 선택으로 돌아가기" : "다른 사진 업로드"}</button>
-          <div className="workspace-heading"><span className="section-number">YOUR STYLE SEARCH / {stage === "results" ? "02 RESULTS" : "01 ANALYSIS"}</span><h1>{stage === "analyzing" ? "Decoding your look" : stage === "searching" ? "Finding your pieces" : stage === "results" ? "The pieces, found." : "Pick your piece."}<span className="lime-dot">.</span></h1><p>{stage === "select" ? "찾고 싶은 의상을 골라 상품을 검색해보세요." : stage === "results" ? "AI가 추출한 검색어로 쇼핑몰 검색 결과를 확인해 보세요." : "잠시만요. 스타일을 살펴보고 있어요."}</p></div>
+          <div className="workspace-heading"><span className="section-number">YOUR STYLE SEARCH / {stage === "results" ? "02 RESULTS" : "01 ANALYSIS"}</span><h1>{stage === "analyzing" ? "Decoding your look" : stage === "searching" ? "Finding your pieces" : stage === "results" ? "Shop your piece" : "Pick your piece."}<span className="lime-dot">.</span></h1><p>{stage === "select" ? "찾고 싶은 의상을 골라 상품을 검색해보세요." : stage === "results" ? "AI가 추출한 검색어로 쇼핑몰 검색 결과를 확인해 보세요." : "잠시만요. 스타일을 살펴보고 있어요."}</p></div>
           {demo && <div className="demo-notice">DEMO MODE — 아래 아이템은 업로드된 사진의 AI 분석 결과가 아닌 예시 데이터입니다.</div>}
           <div className="workspace-grid"><div className="selected-photo">{preview ? <img src={preview} alt="분석 중인 스타일 사진"/> : <div className="demo-photo"><Shirt size={75}/><span>DEMO EXPERIENCE</span></div>}<span className="photo-index">YOUR REFERENCE / 001</span></div>
             <div className="analysis-panel">
               {stage === "analyzing" || stage === "searching" ? <div className="loading-state"><LoaderCircle className="spin" size={44}/><h3>{stage === "analyzing" ? "AI가 의상을 분석하고 있어요" : "쇼핑 상품을 찾고 있어요"}</h3><p>사진 속 디테일을 살펴보는 중입니다.</p></div> :
               <><div className="panel-top"><span>{stage === "results" ? "SEARCHED ITEM" : "DETECTED PIECES"}</span><span>{String(items.length).padStart(2,"0")} ITEMS</span></div>
-                <div className="garment-list">{items.map((item, index) => <button key={item.id} className={"garment "+(active===index?"active":"")} onClick={()=>{setActive(index);if(stage==="results"){setStage("select");setProducts([]);}}}><span className="garment-num">{String(index+1).padStart(2,"0")}</span><span className="garment-name"><b>{item.name}</b><small>{item.category} · {item.details}</small></span>{active===index?<span className="selected-icon"><Check size={16}/></span>:<ArrowUpRight size={19}/>}</button>)}</div>
-                {stage === "select" && <><div className="selected-detail"><span>SELECTED PIECE</span><strong>{garment?.name}</strong><p>{garment?.color} / {garment?.details}</p><small>추천 검색어: {garment?.query}</small></div><button className="primary-btn wide" onClick={()=>search()}>비슷한 상품 찾아보기 <Search size={19}/></button></>}
+                <div className="garment-list">{items.map((item, index) => <button key={item.id} className={"garment "+(active===index?"active":"")} onClick={()=>{setActive(index);if(stage==="results"){setStage("select");}}}><span className="garment-num">{String(index+1).padStart(2,"0")}</span><span className="garment-name"><b>{item.name}</b><small>{item.category} · {item.details}</small></span>{active===index?<span className="selected-icon"><Check size={16}/></span>:<ArrowUpRight size={19}/>}</button>)}</div>
+                {stage === "select" && <><div className="selected-detail"><span>SELECTED PIECE</span><strong>{garment?.name}</strong><p>{garment?.color} / {garment?.details}</p><small>추천 검색어: {garment?.query}</small></div><button className="primary-btn wide" onClick={()=>search()}>쇼핑몰에서 검색하기 <Search size={19}/></button></>}
                 {stage === "results" && <div className="selected-detail"><span>SEARCH QUERY</span><strong>{garment?.query}</strong><p>쇼핑몰 {searchLinks.length}곳 바로 검색</p></div>}
               </>}
             </div></div>
