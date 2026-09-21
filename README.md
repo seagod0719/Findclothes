@@ -4,7 +4,7 @@
 
 ## 현재 구현
 
-- JPEG/PNG/WEBP 업로드 및 미리보기 (최대 4MB), 드래그 앤 드롭
+- JPEG/PNG/WEBP 업로드 및 미리보기 (최대 3MB), 드래그 앤 드롭
 - OpenAI 비전 API를 통한 이미지 속 의류 개별 인식·검색어 생성
 - 원하는 의류 선택 후 **네이버 쇼핑 / 무신사 / Google 쇼핑 검색 결과로 이동**
 - 샘플 의상 선택 데모 (실제 이미지 AI 분석 결과가 아님), 모바일 대응
@@ -17,7 +17,7 @@
 
 ## 시작하기
 
-Node.js 20 이상 권장. 프로젝트 디렉터리에서:
+Node.js 22 권장. 프로젝트 디렉터리에서:
 
 ```bash
 npm install
@@ -44,3 +44,17 @@ OpenAI 키 없이도 "먼저 체험해보기"로 데모 의상 선택 및 쇼핑
 ## 배포
 
 Vercel 또는 Next.js를 지원하는 서버에서 `OPENAI_API_KEY` 서버 환경변수를 지정하세요. API 키를 GitHub에 올리지 마세요. 이미지 자체는 Findclothes DB에 저장하지 않지만 의상 분석 시 OpenAI에 전송합니다. 공개 운영 전 업로드 동의·보관정책 및 요청량 제한을 마련하세요.
+
+
+## Vercel 배포
+
+1. [Vercel Dashboard](https://vercel.com/new)에서 **Add New → Project**를 선택합니다.
+2. GitHub에 연결해 `seagod0719/Findclothes`를 Import합니다.
+3. Framework Preset: **Next.js** / Root Directory: **./** / Build Command: 기본값(`next build`) / Output Directory: 기본값을 사용합니다.
+4. Project Settings → Environment Variables에서 `OPENAI_API_KEY`를 **Production, Preview, Development** 중 사용할 환경에 설정합니다. 필요하면 `OPENAI_MODEL=gpt-4.1-mini`을 추가합니다.
+5. **Deploy**를 누릅니다. API 키는 브라우저 코드에 쓰지 말고 서버 환경변수로만 설정하세요.
+6. 환경변수를 배포 후 추가했다면 **Redeploy**해야 새 배포에 적용됩니다.
+
+네이버 쇼핑 검색 링크·무신사·Google 쇼핑 링크 사용에는 NAVER_CLIENT_ID/NAVER_CLIENT_SECRET이 필요하지 않습니다. `.env.local`은 로컬 개발 전용이며 GitHub에 올라가지 않습니다.
+
+**주의:** Vercel 요청 본문 크기 한도를 고려하여 사진 파일을 최대 3MB로 제한했습니다. 프리 티어 등의 실행 시간 설정에 따라 AI API 응답이 지연되거나 타임아웃될 수 있습니다. 공개 배포 전에는 API 호출 남용 방지와 사용량 제한을 추가하세요.
