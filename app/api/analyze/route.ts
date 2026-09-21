@@ -6,7 +6,8 @@ export const maxDuration = 60;
 const categories = ["상의", "하의", "아우터", "신발", "가방", "액세서리", "원피스", "기타"] as const;
 
 type GeminiResponse = {
-  candidates?: { content?: { parts?: { text?: string }[] } }[];
+  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  promptFeedback?: { blockReason?: string };
   error?: { message?: string; status?: string };
 };
 
@@ -56,7 +57,17 @@ export async function POST(request: NextRequest) {
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.2,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 8192,
+            thinkingConfig: { thinkingLevel: "minimal" },
+            responseSchema: {
+              type: "OBJECT", properties: { items: { type: "ARRAY", maxItems: 8,
+                items: { type: "OBJECT", properties: {
+                  category: { type: "STRING", enum: [...categories] },
+                  name: { type: "STRING" }, color: { type: "STRING" },
+                  details: { type: "STRING" }, query: { type: "STRING" },
+                }, required: ["category", "name", "color", "details", "query"] },
+              } }, required: ["items"],
+            },
           },
         }),
         cache: "no-store",
@@ -66,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const failure = (await response.json().catch(() => ({}))) as GeminiResponse;
-      console.error("Gemini analyze API failure", response.status, failure.error?.status);
+      console.error("Gemini analyze API failure", { model, status: response.status, reason: failure.error?.status, detail: failure.error?.message?.slice(0, 400) });
       const message = response.status === 400 || response.status === 404
         ? "Gemini 모델을 찾을 수 없거나 요청이 올바르지 않습니다. GEMINI_MODEL 설정을 확인해 주세요."
         : response.status === 401 || response.status === 403
@@ -78,15 +89,29 @@ export async function POST(request: NextRequest) {
     }
 
     const data = (await response.json()) as GeminiResponse;
-    const text = data.candidates?.[0]?.content?.parts
-      ?.map(part => part.text || "").join("").trim();
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts
+      ?.filter(part => !part.thought)
+      .map(part => part.text || "").join("").trim();
     if (!text) {
-      return NextResponse.json({ error: "사진에서 의상 분석 결과를 받지 못했습니다. 다른 사진으로 시도해 주세요." }, { status: 502 });
+      console.error("Gemini returned empty text", { model, finishReason: candidate?.finishReason, blockReason: data.promptFeedback?.blockReason });
+      return NextResponse.json({
+        error: candidate?.finishReason === "MAX_TOKENS"
+          ? "AI 응답 길이 제한에 도달했습니다. 다시 시도해 주세요."
+          : "AI가 의상 분석 결과를 반환하지 않았습니다. 다른 사진으로 시도해 주세요.",
+        code: candidate?.finishReason === "MAX_TOKENS" ? "OUTPUT_LIMIT" : "EMPTY_RESPONSE",
+      }, { status: 502 });
     }
 
-    const parsed: unknown = JSON.parse(text);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      console.error("Gemini invalid JSON", { model, length: text.length, finishReason: candidate?.finishReason });
+      return NextResponse.json({ error: "AI 분석 응답 형식이 올바르지 않습니다. 다시 시도해 주세요.", code: "INVALID_MODEL_JSON" }, { status: 502 });
+    }
     if (!parsed || typeof parsed !== "object" || !("items" in parsed) || !Array.isArray(parsed.items)) {
-      throw new Error("Invalid Gemini JSON response");
+      return NextResponse.json({ error: "AI가 예상한 의상 분석 형식으로 응답하지 않았습니다. 다시 시도해 주세요.", code: "INVALID_MODEL_SCHEMA" }, { status: 502 });
     }
     const items = parsed.items.slice(0, 8)
       .filter((item: unknown): item is Record<string, unknown> => {
@@ -106,7 +131,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ items, demo: false });
   } catch (error) {
-    console.error("Image analysis failed:", error instanceof Error ? error.message : "unknown");
-    return NextResponse.json({ error: "이미지 분석 중 오류가 발생했습니다. 다시 시도해 주세요." }, { status: 500 });
+    const timeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    console.error("Image analysis failed", { type: error instanceof Error ? error.name : "unknown", detail: error instanceof Error ? error.message.slice(0, 300) : "unknown" });
+    return NextResponse.json({
+      error: timeout ? "AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도하거나 더 작은 이미지를 사용해 주세요." : "이미지 분석 서버에서 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+      code: timeout ? "ANALYSIS_TIMEOUT" : "INTERNAL_ERROR",
+    }, { status: timeout ? 504 : 500 });
   }
 }
