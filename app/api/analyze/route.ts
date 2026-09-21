@@ -12,7 +12,8 @@ type GeminiResponse = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { image } = await request.json();
+    const { image, locale = "ko" } = await request.json();
+    const language = ({ ko: "한국어", en: "English", ja: "日本語", zh: "简体中文" } as Record<string, string>)[locale] || "한국어";
     if (typeof image !== "string" || image.length > 4_200_000) {
       return NextResponse.json({ error: "JPEG, PNG, WEBP 이미지(최대 3MB)를 업로드해 주세요." }, { status: 400 });
     }
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     }
 
     const model = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-    const instruction = `당신은 패션 이미지 분석기입니다. 사진에서 실제 보이는 의류와 패션 소품만 식별하세요. 얼굴, 사람의 신원, 유명인 여부를 추측하지 마세요. 확인되지 않은 브랜드나 특정 상품명을 만들어내지 마세요. 반드시 아래 형태의 한국어 JSON만 출력하세요: {"items":[{"category":"상의","name":"블랙 오버핏 티셔츠","color":"블랙","details":"오버핏 면 소재","query":"블랙 오버핏 티셔츠"}]}. category는 다음 중 하나만 사용: ${categories.join(", ")}. 안 보이는 항목은 포함하지 말고 최대 8개만 반환하세요.`;
+    const instruction = `당신은 패션 이미지 분석기입니다. 사진에서 실제 보이는 의류와 패션 소품만 식별하세요. 얼굴, 사람의 신원, 유명인 여부를 추측하지 마세요. 확인되지 않은 브랜드나 특정 상품명을 만들어내지 마세요. name, color, details는 반드시 ${language}로 작성하고, query는 한국 쇼핑몰 검색에 적합한 한국어 검색어를 작성하세요. category는 아래의 한국어 카테고리 코드로 유지하세요. 반드시 아래 형태의 JSON만 출력하세요: {"items":[{"category":"상의","name":"블랙 오버핏 티셔츠","color":"블랙","details":"오버핏 면 소재","query":"블랙 오버핏 티셔츠"}]}. category는 다음 중 하나만 사용: ${categories.join(", ")}. 안 보이는 항목은 포함하지 말고 최대 8개만 반환하세요.`;
 
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
           contents: [{
             role: "user",
             parts: [
-              { text: "사진 속 의상을 아이템별로 분석하고 국내 쇼핑 검색에 적합한 구체적인 한국어 검색어를 만들어 주세요." },
+              { text: `사진 속 의상을 아이템별로 분석하세요. 상품명과 설명은 ${language}로 작성하고 쇼핑용 검색어만 한국어로 작성해 주세요.` },
               { inlineData: { mimeType, data: match[2] } },
             ],
           }],
