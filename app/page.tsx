@@ -88,11 +88,11 @@ export default function Home() {
       const hasImage = Array.from(data.files).some(file => file.type.startsWith("image/")) ||
         Array.from(data.items).some(item => item.type.startsWith("image/"));
       const html = data.getData("text/html");
-      const hasHtmlImage = html ? /<img\\b/i.test(html) : false;
+      const hasHtmlImage = html ? /<img\b/i.test(html) : false;
       const text = data.getData("text/plain").trim();
-      const hasImageUrl = /^https:\\/\\/\\S+$/i.test(text) &&
-        /\\.(?:png|jpe?g|webp)(?:[?#]|$)/i.test(text);
-      if (!hasImage && !hasHtmlImage && !hasImageUrl) return;
+      const hasImageUrl = /^https:\/\/\S+$/i.test(text) &&
+        /\.(?:png|jpe?g|webp)(?:[?#]|$)/i.test(text);
+            if (!hasImage && !hasHtmlImage && !hasImageUrl) return;
       event.preventDefault();
       // Reuse the same file / external-image import path as drag-and-drop.
       void handleDrop(data);
