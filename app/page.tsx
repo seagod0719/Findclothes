@@ -36,6 +36,52 @@ export default function Home() {
   const t = (key: string) => translate(locale, key);
   const garment = items[active];
 
+  useEffect(() => {
+    const saved = localStorage.getItem("findclothes-locale");
+    if (languageOptions.some(option => option.code === saved)) {
+      setLocale(saved as Locale);
+      document.documentElement.lang = saved as Locale;
+    }
+    const onOutside = (event: PointerEvent) => {
+      if (!languageMenu.current?.contains(event.target as Node)) setLanguageOpen(false);
+    };
+    document.addEventListener("pointerdown", onOutside);
+    return () => document.removeEventListener("pointerdown", onOutside);
+  }, []);
+
+  function changeLanguage(next: Locale) {
+    setLocale(next);
+    setLanguageOpen(false);
+    localStorage.setItem("findclothes-locale", next);
+    document.documentElement.lang = next;
+  }
+
+  useEffect(() => {
+    const over = (event: globalThis.DragEvent) => {
+      event.preventDefault();
+      if (event.dataTransfer && Array.from(event.dataTransfer.types).some(type =>
+        ["Files", "text/uri-list", "text/html"].includes(type))) setDrag(true);
+    };
+    const leave = (event: globalThis.DragEvent) => {
+      if (!event.relatedTarget) setDrag(false);
+    };
+    const drop = (event: globalThis.DragEvent) => {
+      event.preventDefault();
+      setDrag(false);
+      void handleDrop(event.dataTransfer);
+    };
+    window.addEventListener("dragover", over);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragover", over);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("drop", drop);
+    };
+  // Bind the handler to the current language for localized messages.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locale, importing]);
+
   function load(file?: File) {
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 3 * 1024 * 1024) {
@@ -48,7 +94,48 @@ export default function Home() {
     reader.readAsDataURL(file);
   }
   function onInput(e: ChangeEvent<HTMLInputElement>) { load(e.target.files?.[0]); e.target.value = ""; }
-  function onDrop(e: DragEvent<HTMLElement>) { e.preventDefault(); setDrag(false); load(e.dataTransfer.files?.[0]); }
+
+  async function handleDrop(data: DataTransfer | null) {
+    if (!data || importing) return;
+    setDrag(false);
+    const file = Array.from(data.files).find(entry => entry.type.startsWith("image/"));
+    if (file) { load(file); return; }
+
+    const html = data.getData("text/html");
+    let url = "";
+    if (html) {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      const image = doc.querySelector("img");
+      url = image?.getAttribute("src") || image?.getAttribute("data-src") || "";
+    }
+    if (!url) {
+      const raw = data.getData("text/uri-list") || data.getData("text/plain");
+      url = raw.split(/\r?\n/).find(line => /^https?:\/\//i.test(line.trim()))?.trim() || "";
+    }
+    if (!url || !/^https:\/\//i.test(url)) {
+      setError(t("urlError"));
+      return;
+    }
+    setImporting(true); setError("");
+    try {
+      const response = await fetch("/api/import-image", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const result = await response.json();
+      if (!response.ok || typeof result.image !== "string") throw new Error("Import failed");
+      setItems([]); setSearchLinks([]); setDemo(false); setStage("upload");
+      setPreview(result.image);
+    } catch {
+      setError(t("importError"));
+    } finally { setImporting(false); }
+  }
+  function onDrop(e: DragEvent<HTMLElement>) {
+    e.preventDefault();
+    e.stopPropagation();
+    void handleDrop(e.dataTransfer);
+  }
+
   async function analyze() {
     if (!preview) return;
     setError(""); setStage("analyzing");
@@ -60,7 +147,12 @@ export default function Home() {
       setItems(data.items); setActive(0); setStage("select");
     } catch (e) { setError(e instanceof Error ? e.message : t("analyzeError")); setStage("upload"); }
   }
-  function tryDemo() { setDemo(true); setError(""); setItems(demoItems); setActive(0); setSearchLinks([]); setStage("select"); }
+  function tryDemo() {
+    const labels = ["demoOuter", "demoTop", "demoBottom", "demoShoes"];
+    const translated = demoItems.map((item, index) => ({
+      ...item, name: t(labels[index]), details: t(labels[index] + "Details"),
+    }));
+    setDemo(true); setError(""); setItems(translated); setActive(0); setSearchLinks([]); setStage("select"); }
   async function search(index = active) {
     setActive(index); setSearchLinks([]); setError(""); setStage("searching");
     try {
@@ -73,7 +165,19 @@ export default function Home() {
   function reset() { setPreview(""); setStage("upload"); setItems([]); setSearchLinks([]); setError(""); setDemo(false); }
   return <div className="site">
     {drag && <div className="global-drop-overlay" aria-hidden="true"><ImagePlus size={44}/><strong>{t("dropTitle")}</strong><span>{t("dropHelp")}</span></div>}
-    <header className="header"><a href="/" className="brand"><span className="brand-mark">f<span>.</span></span><span>findclothes<span className="brand-period">.</span></span></a><nav><a href="#how">HOW IT WORKS</a><a href="#inspiration">INSPIRATION</a></nav><button className="header-cta" onClick={() => { reset(); input.current?.click(); }}>FIND YOUR LOOK <ArrowUpRight size={15}/></button></header>
+    <header className="header"><a href="/" className="brand"><span className="brand-mark">f<span>.</span></span><span>findclothes<span className="brand-period">.</span></span></a><nav><a href="#how">{t("howNav")}</a><a href="#inspiration">{t("inspoNav")}</a></nav>
+      <div className="header-actions">
+        <div className="language-picker" ref={languageMenu}>
+          <button type="button" className="language-button" aria-label={t("lang")} aria-haspopup="menu" aria-expanded={languageOpen} onClick={() => setLanguageOpen(value => !value)}>
+            <Globe2 size={19}/><span>{locale.toUpperCase()}</span><ChevronDown size={14}/>
+          </button>
+          {languageOpen && <div className="language-menu" role="menu">{languageOptions.map(option =>
+            <button type="button" role="menuitemradio" aria-checked={locale === option.code} key={option.code} onClick={() => changeLanguage(option.code)}>
+              <span>{option.label}</span>{locale === option.code && <Check size={15}/>}
+            </button>)}</div>}
+        </div>
+        <button className="header-cta" onClick={() => { reset(); input.current?.click(); }}>{t("find")} <ArrowUpRight size={15}/></button>
+      </div></header>
     <main>
       {stage === "upload" ? <>
         <section className="hero">
