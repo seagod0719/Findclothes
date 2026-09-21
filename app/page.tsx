@@ -79,10 +79,30 @@ export default function Home() {
     window.addEventListener("dragover", over);
     window.addEventListener("dragleave", leave);
     window.addEventListener("drop", drop);
+    const paste = (event: ClipboardEvent) => {
+      const target = event.target;
+      // Keep ordinary text editing and pasting into form controls intact.
+      if (target instanceof HTMLElement && target.closest("input, textarea, [contenteditable], [role='textbox']")) return;
+      const data = event.clipboardData;
+      if (!data || importing) return;
+      const hasImage = Array.from(data.files).some(file => file.type.startsWith("image/")) ||
+        Array.from(data.items).some(item => item.type.startsWith("image/"));
+      const html = data.getData("text/html");
+      const hasHtmlImage = html ? /<img\\b/i.test(html) : false;
+      const text = data.getData("text/plain").trim();
+      const hasImageUrl = /^https:\\/\\/\\S+$/i.test(text) &&
+        /\\.(?:png|jpe?g|webp)(?:[?#]|$)/i.test(text);
+      if (!hasImage && !hasHtmlImage && !hasImageUrl) return;
+      event.preventDefault();
+      // Reuse the same file / external-image import path as drag-and-drop.
+      void handleDrop(data);
+    };
+    window.addEventListener("paste", paste);
     return () => {
       window.removeEventListener("dragover", over);
       window.removeEventListener("dragleave", leave);
       window.removeEventListener("drop", drop);
+      window.removeEventListener("paste", paste);
     };
   // Bind the handler to the current language for localized messages.
   // eslint-disable-next-line react-hooks/exhaustive-deps
