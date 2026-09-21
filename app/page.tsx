@@ -51,6 +51,12 @@ export default function Home() {
 
   function changeLanguage(next: Locale) {
     setLocale(next);
+    if (demo) {
+      const labels = ["demoOuter", "demoTop", "demoBottom", "demoShoes"];
+      setItems(demoItems.map((item, index) => ({
+        ...item, name: translate(next, labels[index]), details: translate(next, labels[index] + "Details"),
+      })));
+    }
     setLanguageOpen(false);
     localStorage.setItem("findclothes-locale", next);
     document.documentElement.lang = next;
@@ -158,7 +164,7 @@ export default function Home() {
     try {
       const r = await fetch("/api/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: items[index].query }) });
       const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "상품 검색에 실패했습니다.");
+      if (!r.ok) throw new Error(data.error || t("searchError"));
       setSearchLinks(data.links || []); setStage("results");
     } catch (e) { setError(e instanceof Error ? e.message : t("searchError")); setStage("select"); }
   }
