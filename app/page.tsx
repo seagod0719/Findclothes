@@ -210,18 +210,18 @@ export default function Home() {
           <div className="hero-left"><div className="eyebrow"><span className="eyebrow-line"/> YOUR STYLE, DECODED BY AI <span className="eyebrow-star">✳</span></div>
             <h1>{t("hero1")}<br/>{t("hero2")}<br/><span>{t("hero3")}<span className="lime-dot">.</span></span></h1>
             <p className="hero-desc">{t("heroFirst")}<br/>{t("heroSecond")}</p>
-            <div className="hero-actions"><button className="primary-btn" onClick={() => input.current?.click()}>{t("heroCta")} <ArrowUpRight size={19}/></button><button className="text-btn" onClick={tryDemo}>{t("tryDemo")} <ArrowRight size={17}/></button></div>
+            <div className="hero-upload" id="upload">
+          <div className={"dropzone hero-dropzone "+(drag?"drag":"")} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={onDrop} role="region" aria-label={t("dropTitle")}>
+            {preview ? <><img className="preview-image" src={preview} alt={t("uploadedAlt")} /><button className="remove-image" onClick={reset} aria-label={t("remove")}><X size={18}/></button><p className="drop-caption">READY TO FIND YOUR LOOK</p><button className="primary-btn" onClick={analyze}>{t("analyze")} <Sparkles size={18}/></button></> :
+              <><div className="upload-icon"><ImagePlus size={23} strokeWidth={1.4}/></div><h3>{t("dropTitle")}<span>.</span></h3><p>{t("dropHelp")}</p><button className="secondary-btn" onClick={() => input.current?.click()}><UploadCloud size={18}/> {t("uploadButton")}</button><small>{t("fileHint")}</small></>}
+          </div>
+{importing && <div className="importing"><LoaderCircle className="spin" size={19}/>{t("importing")}</div>}{error && <div className="alert" role="alert">{error}</div>}
+</div><div className="hero-actions hero-actions-compact"><button className="text-btn" onClick={tryDemo}>{t("tryDemo")} <ArrowRight size={17}/></button></div>
             <div className="hero-footer"><div className="avatars"><span>F</span><span>C</span><span>✳</span></div><span>THE OUTFIT YOU WANT,<br/><strong>JUST ONE PHOTO AWAY.</strong></span></div>
           </div>
           <div className="hero-right"><div className="hero-photo"><img src="https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=1100&auto=format&fit=crop&q=85" alt="스트리트 패션 스타일 영감" /><div className="hero-photo-overlay"><span>01 / YOUR NEXT OBSESSION</span><span className="hero-overlay-icon">↗</span></div></div><div className="rotated-label">STYLE IS EVERYWHERE — 2026</div><div className="photo-badge"><Sparkles size={20}/><span>SPOTTED IT?<br/><b>LET'S FIND IT.</b></span></div></div>
         </section>
-        <section className="upload-section" id="upload"><div className="section-top"><span className="section-number">01 — START HERE</span><span>THE SEARCH STARTS WITH A PHOTO ↘</span></div>
-          <div className="upload-heading"><h2>{t("uploadHeading")} <em>{t("uploadItalic")}</em></h2><p>{t("uploadGuide1")}<br/>{t("uploadGuide2")}</p></div>
-          <div className={"dropzone "+(drag?"drag":"")} onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={onDrop}>
-            {preview ? <><img className="preview-image" src={preview} alt={t("uploadedAlt")} /><button className="remove-image" onClick={reset} aria-label={t("remove")}><X size={18}/></button><p className="drop-caption">READY TO FIND YOUR LOOK</p><button className="primary-btn" onClick={analyze}>{t("analyze")} <Sparkles size={18}/></button></> :
-              <><div className="upload-icon"><ImagePlus size={29} strokeWidth={1.4}/></div><h3>{t("dropTitle")}<span>.</span></h3><p>{t("dropHelp")}</p><button className="secondary-btn" onClick={() => input.current?.click()}><UploadCloud size={18}/> {t("uploadButton")}</button><small>{t("fileHint")}</small></>}
-          </div>{importing && <div className="importing"><LoaderCircle className="spin" size={19}/>{t("importing")}</div>}{error && <div className="alert" role="alert">{error}</div>}
-        </section>
+
       </> : <>
         <section className="workspace"><button className="back-btn" onClick={() => stage === "results" ? setStage("select") : reset()}><ArrowLeft size={18}/> {stage === "results" ? t("backResult") : t("backUpload")}</button>
           <div className="workspace-heading"><span className="section-number">YOUR STYLE SEARCH / {stage === "results" ? "02 RESULTS" : "01 ANALYSIS"}</span><h1>{stage === "analyzing" ? "Decoding your look" : stage === "searching" ? "Finding your pieces" : stage === "results" ? "Shop your piece" : "Pick your piece."}<span className="lime-dot">.</span></h1><p>{stage === "select" ? t("selectIntro") : stage === "results" ? t("resultsIntro") : t("waitIntro")}</p></div>
