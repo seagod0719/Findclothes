@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 const categories = ["상의", "하의", "아우터", "신발", "가방", "액세서리", "원피스", "기타"] as const;
 
 export async function POST(request: NextRequest) {
   try {
     const { image } = await request.json();
-    if (typeof image !== "string" || image.length > 7_000_000 || !/^data:image\/(jpeg|png|webp);base64,/.test(image)) {
-      return NextResponse.json({ error: "JPEG, PNG, WEBP 이미지(최대 4MB)를 업로드해 주세요." }, { status: 400 });
+    if (typeof image !== "string" || image.length > 4_200_000 || !/^data:image\/(jpeg|png|webp);base64,/.test(image)) {
+      return NextResponse.json({ error: "JPEG, PNG, WEBP 이미지(최대 3MB)를 업로드해 주세요." }, { status: 400 });
     }
     const payload = image.split(",")[1];
     const bytes = Buffer.from(payload, "base64");
-    if (bytes.length === 0 || bytes.length > 4 * 1024 * 1024) {
+    if (bytes.length === 0 || bytes.length > 3 * 1024 * 1024) {
       return NextResponse.json({ error: "이미지는 4MB 이하만 지원합니다." }, { status: 400 });
     }
     if (!process.env.OPENAI_API_KEY) {
